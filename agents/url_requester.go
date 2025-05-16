@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/michenriksen/aquatone/core"
+	"github.com/mk990/aquatone/core"
 	"github.com/parnurzeal/gorequest"
 )
 

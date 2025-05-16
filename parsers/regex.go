@@ -18,8 +18,9 @@ func (p *RegexParser) Parse(r io.Reader) ([]string, error) {
 	targetsFilter := make(map[string]struct{})
 
 	scanner := bufio.NewScanner(r)
+	urls := xurls.Relaxed
 	for scanner.Scan() {
-		for _, target := range xurls.Relaxed().FindAllString(scanner.Text(), -1) {
+		for _, target := range urls.FindAllString(scanner.Text(), -1) {
 			if _, found := targetsFilter[target]; found {
 				continue
 			}
