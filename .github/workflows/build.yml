@@ -17,22 +17,26 @@ jobs:
   build:
     name: Build Aquatone
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for tags and branch info
+
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.21'  # Use newer Go version
-          cache: true
+          go-version-file: go.mod  # Automatically use Go version from go.mod
+
       - name: Run go mod tidy
         run: go mod tidy
+
       - name: Build binaries
         run: bash ./build.sh
+
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aquatone-binaries
           path: build/*.zip
@@ -43,14 +47,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')  # Only run on tag pushes
+
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: aquatone-binaries
           path: build
+
       - name: List files
         run: ls -la build/
+
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -67,20 +74,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'  # Don't build docker on PRs
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -88,8 +99,9 @@ jobs:
             type=ref,event=tag
             type=semver,pattern={{version}}
             type=sha,format=short
+
       - name: Build and push
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
