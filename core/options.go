@@ -1,9 +1,11 @@
 package core
 
 import (
-	"flag"
 	"fmt"
+	"os"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 type Options struct {
@@ -26,26 +28,81 @@ type Options struct {
 }
 
 func ParseOptions() (Options, error) {
-	options := Options{
-		Threads:           flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-		OutDir:            flag.String("out", ".", "Directory to write files to"),
-		SessionPath:       flag.String("session", "", "Load Aquatone session file and generate HTML report"),
-		TemplatePath:      flag.String("template-path", "", "Path to HTML template to use for report"),
-		Proxy:             flag.String("proxy", "", "Proxy to use for HTTP requests"),
-		ChromePath:        flag.String("chrome-path", "", "Full path to the Chrome/Chromium executable to use. By default, aquatone will search for Chrome or Chromium"),
-		Resolution:        flag.String("resolution", "1440,900", "screenshot resolution"),
-		Ports:             flag.String("ports", strings.Trim(strings.Join(strings.Fields(fmt.Sprint(MediumPortList)), ","), "[]"), "Ports to scan on hosts. Supported list aliases: small, medium, large, xlarge"),
-		ScanTimeout:       flag.Int("scan-timeout", 100, "Timeout in miliseconds for port scans"),
-		HTTPTimeout:       flag.Int("http-timeout", 3*1000, "Timeout in miliseconds for HTTP requests"),
-		ScreenshotTimeout: flag.Int("screenshot-timeout", 30*1000, "Timeout in miliseconds for screenshots"),
-		Nmap:              flag.Bool("nmap", false, "Parse input as Nmap/Masscan XML"),
-		SaveBody:          flag.Bool("save-body", true, "Save response bodies to files"),
-		Silent:            flag.Bool("silent", false, "Suppress all output except for errors"),
-		Debug:             flag.Bool("debug", false, "Print debugging information"),
-		Version:           flag.Bool("version", false, "Print current Aquatone version"),
+	var (
+		threads           int
+		outDir            string
+		sessionPath       string
+		templatePath      string
+		proxy             string
+		chromePath        string
+		resolution        string
+		ports             string
+		scanTimeout       int
+		httpTimeout       int
+		screenshotTimeout int
+		nmap              bool
+		saveBody          bool
+		silent            bool
+		debug             bool
+		version           bool
+	)
+
+	rootCmd := &cobra.Command{
+		Use:   "aquatone",
+		Short: "Discover and report on HTTP services",
+		RunE:  func(cmd *cobra.Command, args []string) error { return nil },
 	}
 
-	flag.Parse()
+	flags := rootCmd.PersistentFlags()
 
-	return options, nil
+	flags.IntVarP(&threads, "threads", "t", 0, "Number of concurrent threads")
+	flags.StringVarP(&outDir, "out", "o", ".", "Directory to write files to")
+	flags.StringVarP(&sessionPath, "session", "s", "", "Load Aquatone session file and generate HTML report")
+	flags.StringVarP(&templatePath, "template-path", "T", "", "Path to HTML template to use for report")
+
+	defaultPorts := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(MediumPortList)), ","), "[]")
+	flags.StringVarP(&ports, "ports", "p", defaultPorts, "Ports to scan on hosts (alias list: small, medium, large, xlarge)")
+	flags.StringVarP(&proxy, "proxy", "x", "", "Proxy to use for HTTP requests (like curl -x)")
+	flags.StringVarP(&chromePath, "chrome-path", "c", "", "Full path to Chrome/Chromium executable")
+	flags.StringVarP(&resolution, "resolution", "r", "1440,900", "Screenshot resolution")
+
+	flags.IntVarP(&scanTimeout, "scan-timeout", "S", 100, "Timeout in milliseconds for port scans")
+	flags.IntVarP(&httpTimeout, "http-timeout", "H", 3000, "Timeout in milliseconds for HTTP requests")
+	flags.IntVarP(&screenshotTimeout, "screenshot-timeout", "z", 30000, "Timeout in milliseconds for screenshots")
+
+	flags.BoolVarP(&nmap, "nmap", "m", false, "Parse input as Nmap/Masscan XML")
+
+	flags.BoolVarP(&saveBody, "save-body", "b", true, "Save response bodies to files")
+	flags.BoolVarP(&silent, "silent", "q", false, "Suppress all output except for errors")
+	flags.BoolVarP(&debug, "debug", "d", false, "Print debugging information")
+	flags.BoolVarP(&version, "version", "v", false, "Print current Aquatone version")
+
+	// Use ExecuteC to capture help invocation
+	// Execute and handle help
+	cmd, err := rootCmd.ExecuteC()
+	if err != nil {
+		os.Exit(1)
+	}
+	if cmd.Flags().Changed("help") {
+		os.Exit(0)
+	}
+
+	return Options{
+		Threads:           &threads,
+		OutDir:            &outDir,
+		SessionPath:       &sessionPath,
+		TemplatePath:      &templatePath,
+		Proxy:             &proxy,
+		ChromePath:        &chromePath,
+		Resolution:        &resolution,
+		Ports:             &ports,
+		ScanTimeout:       &scanTimeout,
+		HTTPTimeout:       &httpTimeout,
+		ScreenshotTimeout: &screenshotTimeout,
+		Nmap:              &nmap,
+		SaveBody:          &saveBody,
+		Silent:            &silent,
+		Debug:             &debug,
+		Version:           &version,
+	}, nil
 }
