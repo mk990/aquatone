@@ -23,38 +23,23 @@ If you for some reason don't trust the pre-compiled binaries, you can also compi
 ### Command-line options:
 
 ```
-  -chrome-path string
-    	Full path to the Chrome/Chromium executable to use. By default, aquatone will search for Chrome or Chromium
-  -debug
-    	Print debugging information
-  -http-timeout int
-    	Timeout in miliseconds for HTTP requests (default 3000)
-  -nmap
-    	Parse input as Nmap/Masscan XML
-  -out string
-    	Directory to write files to (default ".")
-  -ports string
-    	Ports to scan on hosts. Supported list aliases: small, medium, large, xlarge (default "80,443,8000,8080,8443")
-  -proxy string
-    	Proxy to use for HTTP requests
-  -resolution string
-    	screenshot resolution (default "1440,900")
-  -save-body
-    	Save response bodies to files (default true)
-  -scan-timeout int
-    	Timeout in miliseconds for port scans (default 100)
-  -screenshot-timeout int
-    	Timeout in miliseconds for screenshots (default 30000)
-  -session string
-    	Load Aquatone session file and generate HTML report
-  -silent
-    	Suppress all output except for errors
-  -template-path string
-    	Path to HTML template to use for report
-  -threads int
-    	Number of concurrent threads (default number of logical CPUs)
-  -version
-    	Print current Aquatone version
+  -c, --chrome-path string       Full path to Chrome/Chromium executable
+  -d, --debug                    Print debugging information
+  -h, --help                     help for aquatone
+  -H, --http-timeout int         Timeout in milliseconds for HTTP requests (default 3000)
+  -m, --nmap                     Parse input as Nmap/Masscan XML
+  -o, --out string               Directory to write files to (default ".")
+  -p, --ports string             Ports to scan on hosts (alias list: small, medium, large, xlarge) (default "80,443,8000,8080,8443")
+  -x, --proxy string             Proxy to use for HTTP requests (like curl -x)
+  -r, --resolution string        Screenshot resolution (default "1440,900")
+  -b, --save-body                Save response bodies to files (default true)
+  -S, --scan-timeout int         Timeout in milliseconds for port scans (default 100)
+  -z, --screenshot-timeout int   Timeout in milliseconds for screenshots (default 30000)
+  -s, --session string           Load Aquatone session file and generate HTML report
+  -q, --silent                   Suppress all output except for errors
+  -T, --template-path string     Path to HTML template to use for report
+  -t, --threads int              Number of concurrent threads
+  -v, --version                  Print current Aquatone version
 ```
 
 ### Giving Aquatone data
