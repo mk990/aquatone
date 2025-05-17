@@ -60,16 +60,16 @@ When Aquatone is done processing the target hosts, it has created a bunch of fil
  - **aquatone_urls.txt**: A file containing all responsive URLs. Useful for feeding into other tools.
  - **aquatone_session.json**: A file containing statistics and page data. Useful for automation.
  - **headers/**: A folder with files containing raw response headers from processed targets
- - **html/**: A folder with files containing the raw response bodies from processed targets. If you are processing a large amount of hosts, and don't need this for further analysis, you can disable this with the `-save-body=false` flag to save some disk space.
+ - **html/**: A folder with files containing the raw response bodies from processed targets. If you are processing a large amount of hosts, and don't need this for further analysis, you can disable this with the `--save-body=false` flag to save some disk space.
  - **screenshots/**: A folder with PNG screenshots of the processed targets
 
 The output can easily be zipped up and shared with others or archived.
 
 #### Changing the output destination
 
-If you don't want Aquatone to create files in the current working directory, you can specify a different location with the `-out` flag:
+If you don't want Aquatone to create files in the current working directory, you can specify a different location with the `--out` or `-o` flag:
 
-    $ cat hosts.txt | aquatone -out ~/aquatone/example.com
+    $ cat hosts.txt | aquatone --out ~/aquatone/example.com
 
 It is also possible to set a permanent default output destination by defining an environment variable:
 
@@ -78,9 +78,9 @@ It is also possible to set a permanent default output destination by defining an
 
 ### Specifying ports to scan
 
-Be default, Aquatone will scan target hosts with a small list of commonly used HTTP ports: 80, 443, 8000, 8080 and 8443. You can change this to your own list of ports with the `-ports` flag:
+Be default, Aquatone will scan target hosts with a small list of commonly used HTTP ports: 80, 443, 8000, 8080 and 8443. You can change this to your own list of ports with the `--ports` or `-p` flag:
 
-    $ cat hosts.txt | aquatone -ports 80,443,3000,3001
+    $ cat hosts.txt | aquatone --ports 80,443,3000,3001
 
 Aquatone also supports aliases of built-in port lists to make it easier for you:
 
@@ -91,7 +91,7 @@ Aquatone also supports aliases of built-in port lists to make it easier for you:
 
 **Example:**
 
-    $ cat hosts.txt | aquatone -ports large
+    $ cat hosts.txt | aquatone --ports large
 
 
 ### Usage examples
@@ -124,9 +124,9 @@ There are plenty of other DNS enumeration tools out there and Aquatone should wo
 
 #### Nmap or Masscan
 
-Aquatone can make a report on hosts scanned with the [Nmap](https://nmap.org/) or [Masscan](https://github.com/robertdavidgraham/masscan) portscanner. Simply feed Aquatone the XML output and give it the `-nmap` flag to tell it to parse the input as Nmap/Masscan XML:
+Aquatone can make a report on hosts scanned with the [Nmap](https://nmap.org/) or [Masscan](https://github.com/robertdavidgraham/masscan) portscanner. Simply feed Aquatone the XML output and give it the `--nmap` or `-m` flag to tell it to parse the input as Nmap/Masscan XML:
 
-    $ cat scan.xml | aquatone -nmap
+    $ cat scan.xml | aquatone --nmap
 
 ### Credits
 
