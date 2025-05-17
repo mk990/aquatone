@@ -1,65 +1,68 @@
 #!/bin/bash
+set -e
 
-BUILD_FOLDER=build
-VERSION=$(cat core/banner.go | grep Version | cut -d '"' -f 2)
+# Modern build script for Aquatone
 
-bin_dep() {
-  BIN=$1
-  which $BIN > /dev/null || { echo "[-] Dependency $BIN not found !"; exit 1; }
-}
+# Define colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-create_exe_archive() {
-  bin_dep 'zip'
+# Print banner
+echo -e "${BLUE}Building Aquatone...${NC}"
 
-  OUTPUT=$1
+# Set up version from git or default
+VERSION=$(git describe --tags 2>/dev/null || echo "dev")
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILDTIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  echo "[*] Creating archive $OUTPUT ..."
-  zip -j "$OUTPUT" aquatone.exe ../README.md ../LICENSE.txt > /dev/null
-  rm -rf aquatone aquatone.exe
-}
+echo -e "${GREEN}Version:${NC} $VERSION"
+echo -e "${GREEN}Commit:${NC} $COMMIT"
+echo -e "${GREEN}Build time:${NC} $BUILDTIME"
 
-create_archive() {
-  bin_dep 'zip'
+# Ensure output directory exists
+mkdir -p build
 
-  OUTPUT=$1
+# Clean up previous builds
+rm -rf build/* 2>/dev/null || true
 
-  echo "[*] Creating archive $OUTPUT ..."
-  zip -j "$OUTPUT" aquatone ../README.md ../LICENSE.txt > /dev/null
-  rm -rf aquatone aquatone.exe
-}
+# Platforms to build for
+platforms=("windows/amd64" "windows/386" "darwin/amd64" "darwin/arm64" "linux/amd64" "linux/386" "linux/arm" "linux/arm64")
 
-build_linux_amd64() {
-  echo "[*] Building linux/amd64 ..."
-  GOOS=linux GOARCH=amd64 go build -o aquatone ..
-}
+for platform in "${platforms[@]}"; do
+    platform_split=(${platform//\// })
+    GOOS=${platform_split[0]}
+    GOARCH=${platform_split[1]}
 
-build_linux_arm64() {
-  echo "[*] Building linux/arm64 ..."
-  GOOS=linux GOARCH=arm go build -o aquatone ..
-}
+    output_name="aquatone"
+    if [ $GOOS = "windows" ]; then
+        output_name+=".exe"
+    fi
 
-build_macos_amd64() {
-  echo "[*] Building darwin/amd64 ..."
-  GOOS=darwin GOARCH=amd64 go build -o aquatone ..
-}
+    echo -e "${BLUE}Building for ${GOOS}/${GOARCH}...${NC}"
 
-build_windows_amd64() {
-  echo "[*] Building windows/amd64 ..."
-  GOOS=windows GOARCH=amd64 go build -o aquatone.exe ..
-}
+    # Modern env-var based build with Go modules
+    export GOOS=$GOOS
+    export GOARCH=$GOARCH
+    export CGO_ENABLED=0
 
-rm -rf $BUILD_FOLDER
-mkdir $BUILD_FOLDER
-cd $BUILD_FOLDER
+    go_build_cmd="go build -trimpath -o build/aquatone_${GOOS}_${GOARCH}/${output_name} -ldflags=\"-s -w -X github.com/mk990/aquatone/core.Version=$VERSION -X github.com/mk990/aquatone/core.CommitHash=$COMMIT -X github.com/mk990/aquatone/core.BuildTime=$BUILDTIME\""
 
-build_linux_amd64 && create_archive aquatone_linux_amd64_$VERSION.zip
-build_linux_arm64 && create_archive aquatone_linux_arm64_$VERSION.zip
-build_macos_amd64 && create_archive aquatone_macos_amd64_$VERSION.zip
-build_windows_amd64 && create_exe_archive aquatone_windows_amd64_$VERSION.zip
-shasum -a 256 * > checksums.txt
+    # Use eval to properly handle the string with quotes
+    eval "$go_build_cmd"
 
-echo
-echo
-du -sh *
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Error building for ${GOOS}/${GOARCH}${NC}"
+        exit 1
+    fi
 
-cd --
+    # Create zip archive
+    cd build
+    zip -q -r "aquatone_${GOOS}_${GOARCH}.zip" "aquatone_${GOOS}_${GOARCH}/"
+    cd ..
+
+    echo -e "${GREEN}✓ Done!${NC}"
+done
+
+echo -e "${GREEN}All builds completed successfully!${NC}"

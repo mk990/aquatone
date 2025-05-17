@@ -2,7 +2,7 @@ module github.com/mk990/aquatone
 
 go 1.23.0
 
-toolchain go1.24.3
+toolchain go1.23.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
