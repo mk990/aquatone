@@ -68,7 +68,7 @@ func ParseOptions() (Options, error) {
 
 	flags.IntVarP(&scanTimeout, "scan-timeout", "S", 100, "Timeout in milliseconds for port scans")
 	flags.IntVarP(&httpTimeout, "http-timeout", "H", 3000, "Timeout in milliseconds for HTTP requests")
-	flags.IntVarP(&screenshotTimeout, "screenshot-timeout", "z", 30000, "Timeout in milliseconds for screenshots")
+	flags.IntVarP(&screenshotTimeout, "screenshot-timeout", "z", 40, "Timeout in seconds for screenshots")
 
 	flags.BoolVarP(&nmap, "nmap", "m", false, "Parse input as Nmap/Masscan XML")
 

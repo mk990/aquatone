@@ -145,7 +145,7 @@ func (a *URLScreenshotter) screenshotPage(page *core.Page) {
 
 	chromeArguments = append(chromeArguments, page.URL)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*a.session.Options.ScreenshotTimeout)*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*a.session.Options.ScreenshotTimeout*1000)*time.Millisecond)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, a.chromePath, chromeArguments...)
