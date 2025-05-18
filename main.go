@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/mk990/aquatone/agents"
@@ -56,9 +57,14 @@ func main() {
 
 	fi, err := os.Stat(*sess.Options.OutDir)
 
-	if os.IsNotExist(err) {
-		sess.Out.Fatal("Output destination %s does not exist\n", *sess.Options.OutDir)
-		os.Exit(1)
+	outDir := strings.TrimSpace(*sess.Options.OutDir)
+	outDir = filepath.Clean(outDir)
+	if _, err := os.Stat(outDir); os.IsNotExist(err) {
+		err = os.MkdirAll(outDir, 0755)
+		if err != nil {
+			sess.Out.Fatal("Failed to create output directory %s: %v\n", outDir, err)
+			os.Exit(1)
+		}
 	}
 
 	if !fi.IsDir() {
