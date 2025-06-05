@@ -2,7 +2,7 @@ package agents
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 
@@ -23,7 +23,9 @@ func (d *URLRequester) ID() string {
 }
 
 func (a *URLRequester) Register(s *core.Session) error {
-	s.EventBus.SubscribeAsync(core.URL, a.OnURL, false)
+	if err := s.EventBus.SubscribeAsync(core.URL, a.OnURL, false); err != nil {
+		return fmt.Errorf("failed to subscribe to %s event: %w", core.URL, err)
+	}
 	a.session = s
 	return nil
 }
@@ -81,6 +83,7 @@ func (a *URLRequester) OnURL(url string) {
 			a.writeBody(page, resp)
 		}
 
+		// EventBus.Publish does not return an error
 		a.session.EventBus.Publish(core.URLResponsive, url)
 	}(url)
 }
@@ -105,7 +108,7 @@ func (a *URLRequester) writeHeaders(page *core.Page) {
 	for _, header := range page.Headers {
 		headers += fmt.Sprintf("%v: %v\n", header.Name, header.Value)
 	}
-	if err := ioutil.WriteFile(a.session.GetFilePath(filepath), []byte(headers), 0644); err != nil {
+	if err := os.WriteFile(a.session.GetFilePath(filepath), []byte(headers), 0644); err != nil {
 		a.session.Out.Debug("[%s] Error: %v\n", a.ID(), err)
 		a.session.Out.Error("Failed to write HTTP response headers for %s to %s\n", page.URL, a.session.GetFilePath(filepath))
 	}
@@ -114,14 +117,14 @@ func (a *URLRequester) writeHeaders(page *core.Page) {
 
 func (a *URLRequester) writeBody(page *core.Page, resp gorequest.Response) {
 	filepath := fmt.Sprintf("html/%s.html", page.BaseFilename())
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		a.session.Out.Debug("[%s] Error: %v\n", a.ID(), err)
 		a.session.Out.Error("Failed to read response body for %s\n", page.URL)
 		return
 	}
 
-	if err := ioutil.WriteFile(a.session.GetFilePath(filepath), body, 0644); err != nil {
+	if err := os.WriteFile(a.session.GetFilePath(filepath), body, 0644); err != nil {
 		a.session.Out.Debug("[%s] Error: %v\n", a.ID(), err)
 		a.session.Out.Error("Failed to write HTTP response body for %s to %s\n", page.URL, a.session.GetFilePath(filepath))
 	}

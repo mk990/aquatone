@@ -21,7 +21,9 @@ func (d *URLTakeoverDetector) ID() string {
 }
 
 func (a *URLTakeoverDetector) Register(s *core.Session) error {
-	s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false)
+	if err := s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false); err != nil {
+		return fmt.Errorf("failed to subscribe to %s event: %w", core.URLResponsive, err)
+	}
 	a.session = s
 	return nil
 }

@@ -22,7 +22,9 @@ func (d *URLPublisher) ID() string {
 }
 
 func (a *URLPublisher) Register(s *core.Session) error {
-	s.EventBus.SubscribeAsync(core.TCPPort, a.OnTCPPort, false)
+	if err := s.EventBus.SubscribeAsync(core.TCPPort, a.OnTCPPort, false); err != nil {
+		return fmt.Errorf("failed to subscribe to %s event: %w", core.TCPPort, err)
+	}
 	a.session = s
 	return nil
 }
@@ -30,21 +32,29 @@ func (a *URLPublisher) Register(s *core.Session) error {
 func (a *URLPublisher) OnTCPPort(port int, host string) {
 	a.session.Out.Debug("[%s] Received new open port on %s: %d\n", a.ID(), host, port)
 	var url string
-	if a.isTLS(port, host) {
-		url = HostAndPortToURL(host, port, "https")
-	} else {
+	isTLS, err := a.isTLS(port, host)
+	if err != nil {
+		a.session.Out.Debug("[%s] Error checking TLS for %s:%d: %v\n", a.ID(), host, port, err)
+		// Default to http if TLS check fails
 		url = HostAndPortToURL(host, port, "http")
+	} else {
+		if isTLS {
+			url = HostAndPortToURL(host, port, "https")
+		} else {
+			url = HostAndPortToURL(host, port, "http")
+		}
 	}
+	// EventBus.Publish does not return an error
 	a.session.EventBus.Publish(core.URL, url)
 }
 
-func (a *URLPublisher) isTLS(port int, host string) bool {
+func (a *URLPublisher) isTLS(port int, host string) (bool, error) {
 	if port == 80 {
-		return false
+		return false, nil
 	}
 
 	if port == 443 {
-		return true
+		return true, nil
 	}
 
 	dialer := &net.Dialer{Timeout: time.Duration(*a.session.Options.HTTPTimeout) * time.Millisecond}
@@ -53,8 +63,11 @@ func (a *URLPublisher) isTLS(port int, host string) bool {
 	}
 	conn, err := tls.DialWithDialer(dialer, "tcp", fmt.Sprintf("%s:%d", host, port), conf)
 	if err != nil {
-		return false
+		return false, err
 	}
-	conn.Close()
-	return true
+	if err := conn.Close(); err != nil {
+		// Log the error but still return true as the connection was successful
+		a.session.Out.Debug("[%s] Error closing TLS connection for %s:%d: %v\n", a.ID(), host, port, err)
+	}
+	return true, nil
 }

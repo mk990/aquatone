@@ -18,6 +18,7 @@ import (
 )
 
 var (
+	r          = rand.New(rand.NewSource(time.Now().UnixNano()))
 	UserAgents = []string{
 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.103 Safari/537.36",
 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36",
@@ -76,14 +77,13 @@ var (
 )
 
 func RandomUserAgent() string {
-	return UserAgents[rand.Intn(len(UserAgents))]
+	return UserAgents[r.Intn(len(UserAgents))]
 }
 
 func RandomIPv4Address() string {
-	rand.Seed(time.Now().UnixNano())
 	blocks := []string{}
 	for i := 0; i < 4; i++ {
-		number := rand.Intn(255)
+		number := r.Intn(255)
 		blocks = append(blocks, strconv.Itoa(number))
 	}
 

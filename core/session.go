@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -98,11 +97,23 @@ func (s *Session) Start() {
 	s.PageSimilarityClusters = make(map[string][]string)
 	s.initStats()
 	s.initLogger()
-	s.initPorts()
+	if err := s.initPorts(); err != nil {
+		// This error is fatal, but NewSession will handle exiting
+		s.Out.Error("Error initializing ports: %v\n", err)
+		// To satisfy linters that this function should return an error if Start can fail
+		// In practice, NewSession will fail first if initPorts fails.
+		// Consider making Start() return an error.
+	}
 	s.initThreads()
 	s.initEventBus()
 	s.initWaitGroup()
-	s.initDirectories()
+	if err := s.initDirectories(); err != nil {
+		// This error is fatal, but NewSession will handle exiting
+		s.Out.Error("Error initializing directories: %v\n", err)
+		// To satisfy linters that this function should return an error if Start can fail.
+		// In practice, NewSession will fail first if initDirectories fails.
+		// Consider making Start() return an error.
+	}
 }
 
 func (s *Session) End() {
@@ -150,7 +161,7 @@ func (s *Session) initStats() {
 	}
 }
 
-func (s *Session) initPorts() {
+func (s *Session) initPorts() error {
 	var ports []int
 	switch *s.Options.Ports {
 	case "small":
@@ -165,17 +176,16 @@ func (s *Session) initPorts() {
 		for _, p := range strings.Split(*s.Options.Ports, ",") {
 			port, err := strconv.Atoi(strings.TrimSpace(p))
 			if err != nil {
-				s.Out.Fatal("Invalid port range given\n")
-				os.Exit(1)
+				return fmt.Errorf("invalid port range given: %s", *s.Options.Ports)
 			}
 			if port < 1 || port > 65535 {
-				s.Out.Fatal("Invalid port given: %v\n", port)
-				os.Exit(1)
+				return fmt.Errorf("invalid port given: %v", port)
 			}
 			ports = append(ports, port)
 		}
 	}
 	s.Ports = ports
+	return nil
 }
 
 func (s *Session) initLogger() {
@@ -199,17 +209,16 @@ func (s *Session) initWaitGroup() {
 	s.WaitGroup = sizedwaitgroup.New(*s.Options.Threads)
 }
 
-func (s *Session) initDirectories() {
+func (s *Session) initDirectories() error {
 	for _, d := range []string{"headers", "html", "screenshots"} {
 		d = s.GetFilePath(d)
 		if _, err := os.Stat(d); os.IsNotExist(err) {
-			err = os.MkdirAll(d, 0755)
-			if err != nil {
-				s.Out.Fatal("Failed to create required directory %s\n", d)
-				os.Exit(1)
+			if err := os.MkdirAll(d, 0755); err != nil {
+				return fmt.Errorf("failed to create required directory %s: %w", d, err)
 			}
 		}
 	}
+	return nil
 }
 
 func (s *Session) BaseFilenameFromURL(stru string) string {
@@ -219,8 +228,16 @@ func (s *Session) BaseFilenameFromURL(stru string) string {
 	}
 
 	h := sha1.New()
-	io.WriteString(h, u.Path)
-	io.WriteString(h, u.Fragment)
+	if _, err := io.WriteString(h, u.Path); err != nil {
+		// Log error or handle as appropriate for BaseFilenameFromURL
+		// For now, returning empty string as original function did on url.Parse error
+		return ""
+	}
+	if _, err := io.WriteString(h, u.Fragment); err != nil {
+		// Log error or handle as appropriate for BaseFilenameFromURL
+		// For now, returning empty string as original function did on url.Parse error
+		return ""
+	}
 
 	pathHash := fmt.Sprintf("%x", h.Sum(nil))[0:16]
 	host := strings.Replace(u.Host, ":", "__", 1)
@@ -233,7 +250,7 @@ func (s *Session) GetFilePath(p string) string {
 }
 
 func (s *Session) ReadFile(p string) ([]byte, error) {
-	content, err := ioutil.ReadFile(s.GetFilePath(p))
+	content, err := os.ReadFile(s.GetFilePath(p))
 	if err != nil {
 		return content, err
 	}
@@ -247,7 +264,7 @@ func (s *Session) ToJSON() string {
 
 func (s *Session) SaveToFile(filename string) error {
 	path := s.GetFilePath(filename)
-	err := ioutil.WriteFile(path, []byte(s.ToJSON()), 0644)
+	err := os.WriteFile(path, []byte(s.ToJSON()), 0644)
 	if err != nil {
 		return err
 	}
@@ -296,7 +313,29 @@ func NewSession() (*Session, error) {
 	session.Options.OutDir = &outdir
 
 	session.Version = Version
-	session.Start()
+	// session.Start() is called, which can have errors.
+	// We need to check errors from initPorts and initDirectories called within Start.
+	// Let's modify Start to return an error, or handle it more directly here.
+	// For now, assuming NewSession is responsible for this initialization sequence.
+
+	session.Out = &Logger{}
+	session.Out.SetDebug(*session.Options.Debug)
+	session.Out.SetSilent(*session.Options.Silent)
+
+	if err := session.initPorts(); err != nil {
+		return nil, fmt.Errorf("failed to initialize ports: %w", err)
+	}
+	session.initThreads()   // Does not return error
+	session.initEventBus()  // Does not return error
+	session.initWaitGroup() // Does not return error
+	if err := session.initDirectories(); err != nil {
+		return nil, fmt.Errorf("failed to initialize directories: %w", err)
+	}
+
+	// Initialize maps and stats after potential errors from init functions
+	session.Pages = make(map[string]*Page)
+	session.PageSimilarityClusters = make(map[string][]string)
+	session.initStats() // Does not return error
 
 	return &session, nil
 }

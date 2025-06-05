@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
@@ -90,24 +89,33 @@ func (a *URLTechnologyFingerprinter) ID() string {
 	return "agent:url_technology_fingerprinter"
 }
 
-func (a *URLTechnologyFingerprinter) Register(s *core.Session) error {
-	s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false)
-	a.session = s
-	a.loadFingerprints()
-
+func (a *URLTechnologyFingerprinter) loadFingerprints() error {
+	fingerprintsAsset, err := a.session.Asset("static/wappalyzer_fingerprints.json")
+	if err != nil {
+		return fmt.Errorf("can't read technology fingerprints file asset: %w", err)
+	}
+	if err := json.Unmarshal(fingerprintsAsset, &a.fingerprints); err != nil {
+		return fmt.Errorf("can't unmarshal technology fingerprints: %w", err)
+	}
+	for i := range a.fingerprints {
+		a.fingerprints[i].LoadPatterns()
+	}
 	return nil
 }
 
-func (a *URLTechnologyFingerprinter) loadFingerprints() {
-	fingerprints, err := a.session.Asset("static/wappalyzer_fingerprints.json")
-	if err != nil {
-		a.session.Out.Fatal("Can't read technology fingerprints file\n")
-		os.Exit(1)
+func (a *URLTechnologyFingerprinter) Register(s *core.Session) error {
+	if err := s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false); err != nil {
+		return fmt.Errorf("failed to subscribe to %s event: %w", core.URLResponsive, err)
 	}
-	json.Unmarshal(fingerprints, &a.fingerprints)
-	for i, _ := range a.fingerprints {
-		a.fingerprints[i].LoadPatterns()
+	a.session = s
+	if err := a.loadFingerprints(); err != nil {
+		// If fingerprints can't be loaded, the agent is not useful.
+		// Log it and potentially stop the agent or the session.
+		// For now, returning the error up.
+		return fmt.Errorf("failed to load technology fingerprints: %w", err)
 	}
+
+	return nil
 }
 
 func (a *URLTechnologyFingerprinter) OnURLResponsive(url string) {

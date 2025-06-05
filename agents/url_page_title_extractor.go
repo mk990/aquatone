@@ -22,7 +22,9 @@ func (a *URLPageTitleExtractor) ID() string {
 }
 
 func (a *URLPageTitleExtractor) Register(s *core.Session) error {
-	s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false)
+	if err := s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false); err != nil {
+		return fmt.Errorf("failed to subscribe to %s event: %w", core.URLResponsive, err)
+	}
 	a.session = s
 
 	return nil

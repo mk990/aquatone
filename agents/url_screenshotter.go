@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -29,11 +28,21 @@ func (a *URLScreenshotter) ID() string {
 }
 
 func (a *URLScreenshotter) Register(s *core.Session) error {
-	s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false)
-	s.EventBus.SubscribeAsync(core.SessionEnd, a.OnSessionEnd, false)
+	if err := s.EventBus.SubscribeAsync(core.URLResponsive, a.OnURLResponsive, false); err != nil {
+		return fmt.Errorf("failed to subscribe to %s event: %w", core.URLResponsive, err)
+	}
+	if err := s.EventBus.SubscribeAsync(core.SessionEnd, a.OnSessionEnd, false); err != nil {
+		// Not returning error here as OnSessionEnd is for cleanup,
+		// main functionality might still work. Log it.
+		s.Out.Error("[%s] Failed to subscribe to %s event: %v\n", a.ID(), core.SessionEnd, err)
+	}
 	a.session = s
-	a.createTempUserDir()
-	a.locateChrome()
+	if err := a.createTempUserDir(); err != nil {
+		return fmt.Errorf("failed to create temporary user directory: %w", err)
+	}
+	if err := a.locateChrome(); err != nil {
+		return fmt.Errorf("failed to locate Chrome: %w", err)
+	}
 
 	return nil
 }
@@ -55,24 +64,30 @@ func (a *URLScreenshotter) OnURLResponsive(url string) {
 
 func (a *URLScreenshotter) OnSessionEnd() {
 	a.session.Out.Debug("[%s] Received SessionEnd event\n", a.ID())
-	os.RemoveAll(a.tempUserDirPath)
-	a.session.Out.Debug("[%s] Deleted temporary user directory at: %s\n", a.ID(), a.tempUserDirPath)
+	if err := os.RemoveAll(a.tempUserDirPath); err != nil {
+		a.session.Out.Error("[%s] Failed to delete temporary user directory %s: %v\n", a.ID(), a.tempUserDirPath, err)
+	} else {
+		a.session.Out.Debug("[%s] Deleted temporary user directory at: %s\n", a.ID(), a.tempUserDirPath)
+	}
 }
 
-func (a *URLScreenshotter) createTempUserDir() {
-	dir, err := ioutil.TempDir("", "aquatone-chrome")
+func (a *URLScreenshotter) createTempUserDir() error {
+	dir, err := os.MkdirTemp("", "aquatone-chrome")
 	if err != nil {
-		a.session.Out.Fatal("Unable to create temporary user directory for Chrome/Chromium browser\n")
-		os.Exit(1)
+		return fmt.Errorf("unable to create temporary user directory for Chrome/Chromium browser: %w", err)
 	}
 	a.session.Out.Debug("[%s] Created temporary user directory at: %s\n", a.ID(), dir)
 	a.tempUserDirPath = dir
+	return nil
 }
 
-func (a *URLScreenshotter) locateChrome() {
+func (a *URLScreenshotter) locateChrome() error {
 	if *a.session.Options.ChromePath != "" {
+		if _, err := os.Stat(*a.session.Options.ChromePath); os.IsNotExist(err) {
+			return fmt.Errorf("chrome path %s specified via -chrome-path does not exist: %w", *a.session.Options.ChromePath, err)
+		}
 		a.chromePath = *a.session.Options.ChromePath
-		return
+		return nil
 	}
 
 	paths := []string{
@@ -92,35 +107,39 @@ func (a *URLScreenshotter) locateChrome() {
 			continue
 		}
 		a.chromePath = path
+		break // Found a path
 	}
 
 	if a.chromePath == "" {
-		a.session.Out.Fatal("Unable to locate a valid installation of Chrome. Install Google Chrome or try specifying a valid location with the -chrome-path option.\n")
-		os.Exit(1)
+		return fmt.Errorf("unable to locate a valid installation of Chrome. Install Google Chrome or try specifying a valid location with the -chrome-path option")
 	}
 
-	if strings.Contains(strings.ToLower(a.chromePath), "chrome") {
-		a.session.Out.Warn("Using unreliable Google Chrome for screenshots. Install Chromium for better results.\n\n")
+	a.session.Out.Debug("[%s] Attempting to use Chrome/Chromium binary at %s\n", a.ID(), a.chromePath)
+
+	if strings.Contains(strings.ToLower(a.chromePath), "chrome") && !strings.Contains(strings.ToLower(a.chromePath), "chromium") {
+		a.session.Out.Warn("Using Google Chrome for screenshots. Install Chromium for potentially better results and stability.\n")
+	}
+
+	// Verify the found chromePath and its version
+	out, err := exec.Command(a.chromePath, "--version").Output()
+	if err != nil {
+		return fmt.Errorf("failed to execute %s --version: %w. Ensure it is a valid Chrome/Chromium executable", a.chromePath, err)
+	}
+	version := string(out)
+	a.session.Out.Debug("[%s] Chrome/Chromium version: %s\n", a.ID(), strings.TrimSpace(version))
+	re := regexp.MustCompile(`(\d+)\.`)
+	match := re.FindStringSubmatch(version)
+	if len(match) <= 0 {
+		a.session.Out.Warn("Unable to determine version of Chrome/Chromium from output: '%s'. Screenshotting might be unreliable.\n", version)
 	} else {
-		out, err := exec.Command(a.chromePath, "--version").Output()
-		if err != nil {
-			a.session.Out.Warn("An error occurred while trying to determine version of Chromium.\n\n")
-			return
-		}
-		version := string(out)
-		re := regexp.MustCompile(`(\d+)\.`)
-		match := re.FindStringSubmatch(version)
-		if len(match) <= 0 {
-			a.session.Out.Warn("Unable to determine version of Chromium. Screenshotting might be unreliable.\n\n")
-			return
-		}
-		majorVersion, _ := strconv.Atoi(match[1])
-		if majorVersion < 72 {
-			a.session.Out.Warn("An older version of Chromium is installed. Screenshotting of HTTPS URLs might be unreliable.\n\n")
+		majorVersion, convErr := strconv.Atoi(match[1])
+		if convErr != nil {
+			a.session.Out.Warn("Unable to parse major version from '%s': %v. Screenshotting might be unreliable.\n", match[1], convErr)
+		} else if majorVersion < 72 {
+			a.session.Out.Warn("An older version of Chrome/Chromium (version %d) is installed. Screenshotting of HTTPS URLs might be unreliable or fail.\n", majorVersion)
 		}
 	}
-
-	a.session.Out.Debug("[%s] Located Chrome/Chromium binary at %s\n", a.ID(), a.chromePath)
+	return nil
 }
 
 func (a *URLScreenshotter) screenshotPage(page *core.Page) {
@@ -182,6 +201,11 @@ func (a *URLScreenshotter) killChromeProcessIfRunning(cmd *exec.Cmd) {
 	if cmd.Process == nil {
 		return
 	}
-	cmd.Process.Release()
-	cmd.Process.Kill()
+	if err := cmd.Process.Release(); err != nil {
+		a.session.Out.Debug("[%s] Error releasing process: %v\n", a.ID(), err)
+	}
+	if err := cmd.Process.Kill(); err != nil {
+		// It's common for Kill to fail if the process already exited, so log as debug.
+		a.session.Out.Debug("[%s] Error killing process: %v\n", a.ID(), err)
+	}
 }
