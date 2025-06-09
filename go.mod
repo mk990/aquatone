@@ -13,7 +13,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/net v0.40.0
+	golang.org/x/net v0.41.0
 )
 
 require (
