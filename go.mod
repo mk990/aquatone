@@ -1,6 +1,6 @@
 module github.com/mk990/aquatone
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.11.0
@@ -13,7 +13,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/remeh/sizedwaitgroup v1.0.0
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/net v0.47.0
+	golang.org/x/net v0.54.0
 )
 
 require (
@@ -26,5 +26,5 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/smartystreets/goconvey v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 )
